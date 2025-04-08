@@ -24,8 +24,27 @@ contract ConditionalTokensTest is Test {
     }
 
     function testprepareCondition() public {
+        // setting up a question Id
+        questionId = keccak256(abi.encodePacked("Will bitcoin hit 100K this month?")); 
+
+        // calculate the expected conditionId
+        bytes32 conditionId = conditionalTokens.getConditionId(ORACLE, questionId, 2);
+
         vm.startBroadcast();
         conditionalTokens.prepareCondition(ORACLE, questionId, 2); 
         vm.stopBroadcast();
+
+        // checking if the condition is properly initialised
+        uint outcomeSlots = conditionalTokens.getOutcomeSlotCount(conditionId); 
+        assertEq(outcomeSlots, 2, "Outcome Slots should be 2"); 
+
+        // checking if payout numerator is initialised
+        for (uint i = 0; i < 2; i++) {
+            assertEq(conditionalTokens.payoutNumerators(conditionId, i), 0, "Numerator should be initialised to 0");
+        }
+
+        // check that denominator is still zero 
+        assertEq(conditionalTokens.payoutDenominator(conditionId), 0, "Payout denominator should be zero before resolving anything");
+
     }
 }
