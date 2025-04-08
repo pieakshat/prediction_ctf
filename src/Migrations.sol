@@ -1,15 +1,16 @@
-pragma solidity ^0.5.1;
-
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
 
 contract Migrations {
     address public owner;
     uint public lastCompletedMigration;
 
     modifier restricted() {
-        if (msg.sender == owner) _;
+        require(msg.sender == owner, "Not authorized");
+        _;
     }
 
-    constructor() public {
+    constructor() {
         owner = msg.sender;
     }
 

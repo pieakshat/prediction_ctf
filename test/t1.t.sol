@@ -1,12 +1,10 @@
 // SPDX-Lisence-Identifier: MIT
-pragma solidity ^0.5.17;
-
-
+pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
 import {ConditionalTokens} from "src/ConditionalTokens.sol"; 
-import {DeployConditional} from "scripts/DeployConditional.s.sol"; 
-import {ERC20Mock} from "openzeppelin-contracts/mocks/ERC20Mock.sol"; 
+import {DeployConditional} from "script/DeployConditional.s.sol"; 
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol"; 
 
 
 contract ConditionalTokensTest is Test {
@@ -22,7 +20,7 @@ contract ConditionalTokensTest is Test {
         deployConditional = new DeployConditional(); 
         conditionalTokens = deployConditional.DeployConditionalTokens(); 
         usdc = new ERC20Mock(); // collateral token or the token on which the tokens will be transferred
-        questionId = abi.encodePacked("Will bitcoin hit 100K this month?");
+        // questionId = abi.encodePacked("Will bitcoin hit 100K this month?");
     }
 
     function testprepareCondition() public {
