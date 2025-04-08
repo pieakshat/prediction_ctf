@@ -1,5 +1,5 @@
 // SPDX-Lisence-Identifier: MIT
-pragma solidity 0.8.24; 
+pragma solidity ^0.5.17;
 
 import {Script} from "forge-std/Test.sol";
 import {ConditionalTokens} from "src/ConditionalTokens.sol"; 
