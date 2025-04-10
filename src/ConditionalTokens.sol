@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { CTHelpers } from "./CTHelpers.sol";
+import {console} from "forge-std/console.sol";
 
 contract ConditionalTokens is ERC1155 {
 
@@ -112,23 +113,27 @@ contract ConditionalTokens is ERC1155 {
         uint[] calldata partition,
         uint amount
     ) external {
+        
         require(partition.length > 1, "got empty or singleton partition");
         uint outcomeSlotCount = payoutNumerators[conditionId].length;
         require(outcomeSlotCount > 0, "condition not prepared yet");
-
+        
         uint fullIndexSet = (1 << outcomeSlotCount) - 1;
         uint freeIndexSet = fullIndexSet;
 
         uint[] memory positionIds = new uint[](partition.length);
         uint[] memory amounts = new uint[](partition.length);
-
+         
         for (uint i = 0; i < partition.length; i++) {
             uint indexSet = partition[i];
             require(indexSet > 0 && indexSet < fullIndexSet, "got invalid index set");
             require((indexSet & freeIndexSet) == indexSet, "partition not disjoint");
             freeIndexSet ^= indexSet;
-            positionIds[i] = CTHelpers.getPositionId(collateralToken, CTHelpers.getCollectionId(parentCollectionId, conditionId, indexSet));
+            console.log("I think I found you");
+            positionIds[i] = CTHelpers.getPositionId(collateralToken, CTHelpers.getCollectionId(parentCollectionId, conditionId, indexSet)); // this line is giving some issues 
+            console.log("is it here?");
             amounts[i] = amount;
+            console.log("loop"); 
         }
 
         if (freeIndexSet == 0) {

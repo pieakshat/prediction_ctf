@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ConditionalTokens} from "src/ConditionalTokens.sol"; 
 import {DeployConditional} from "script/DeployConditional.s.sol"; 
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol"; 
+import {console} from "forge-std/console.sol";
 
 
 contract ConditionalTokensTest is Test {
@@ -15,6 +16,7 @@ contract ConditionalTokensTest is Test {
     ERC20Mock usdc; 
     ConditionalTokens conditionalTokens; 
     bytes32 questionId; 
+    uint[] partition = new uint[](2); 
 
     function setUp() public {
         deployConditional = new DeployConditional(); 
@@ -47,4 +49,41 @@ contract ConditionalTokensTest is Test {
         assertEq(conditionalTokens.payoutDenominator(conditionId), 0, "Payout denominator should be zero before resolving anything");
 
     }
+
+
+function testSplitPosition() public {
+    questionId = keccak256(abi.encodePacked("Will bitcoin hit 100K this month?")); 
+    bytes32 conditionId = conditionalTokens.getConditionId(ORACLE, questionId, 2);
+    bytes32 parentCollectionId = bytes32(0); 
+
+    conditionalTokens.prepareCondition(ORACLE, questionId, 2);
+
+    usdc.mint(address(this), 100); 
+    emit log_uint(usdc.balanceOf(address(this)));
+    usdc.approve(address(conditionalTokens), 100); 
+    emit log_uint(usdc.allowance(address(this), address(conditionalTokens)));
+
+    
+    partition[0] = 1; // outcome 0b01
+    partition[1] = 2; // outcome 0b10
+
+    uint amount = 100; 
+
+    console.log("Before split gas: ", gasleft());
+    conditionalTokens.splitPosition(usdc, parentCollectionId, conditionId, partition, amount);
+    console.log("After split gas: ", gasleft());
+
+    uint positionIdA = conditionalTokens.getPositionId(
+        usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 1)
+    );
+    uint positionIdB = conditionalTokens.getPositionId(
+        usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 2)
+    );
+
+    assertEq(conditionalTokens.balanceOf(address(this), positionIdA), 100, "Should have 100 tokens of position A");
+    assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 100, "Should have 100 tokens of position B");
+
+    assertEq(usdc.balanceOf(address(conditionalTokens)), 100, "Contract should be holding 100 USDC");
+}
+
 }
