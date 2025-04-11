@@ -19,6 +19,7 @@ contract ConditionalTokensTest is Test, IERC1155Receiver {
     ConditionalTokens conditionalTokens; 
     bytes32 questionId; 
     uint[] partition = new uint[](2); 
+    uint[] payoutVector = new uint[](2); 
 
     function setUp() public {
         deployConditional = new DeployConditional(); 
@@ -151,6 +152,57 @@ function testMergePosition() public {
     assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 60, "Should have 60 tokens of position B");
 
     assertEq(usdc.balanceOf(address(this)), 40, "this Contract should be holding 40 USDC after redeeming the tokens");
+}
+
+
+function testRedeemPosition() public {  // reportPayoutfunction also working in this
+        questionId = keccak256(abi.encodePacked("Will bitcoin hit 100K this month?")); 
+    bytes32 conditionId = conditionalTokens.getConditionId(ORACLE, questionId, 2);
+    bytes32 parentCollectionId = bytes32(0); 
+
+    conditionalTokens.prepareCondition(ORACLE, questionId, 2);
+
+    usdc.mint(address(this), 100); 
+    emit log_uint(usdc.balanceOf(address(this)));
+    usdc.approve(address(conditionalTokens), 100); 
+    emit log_uint(usdc.allowance(address(this), address(conditionalTokens)));
+
+    
+    partition[0] = 1; // outcome 0b01
+    partition[1] = 2; // outcome 0b10
+
+    uint amount = 100; 
+
+    conditionalTokens.splitPosition(usdc, parentCollectionId, conditionId, partition, amount);
+    
+        uint positionIdA = conditionalTokens.getPositionId(
+        usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 1)
+    );
+
+    uint positionIdB = conditionalTokens.getPositionId(
+        usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 2)
+    );
+
+    assertEq(usdc.balanceOf(address(this)), 0, "this Contract should be holding 0 USDC after splitting their position and before the reolution");
+
+    // first the oracle calls reportPayouts to call set who won
+    // Bitcoin does hit 100K this month hence the payout vector will be [1, 0]
+    payoutVector[0] = 0; 
+    payoutVector[1] = 1; 
+    vm.prank(ORACLE);
+    conditionalTokens.reportPayouts(questionId, payoutVector);
+    vm.stopPrank();
+
+
+    // after setting up the payouts now we call redeemPosition
+    conditionalTokens.redeemPositions(usdc, parentCollectionId, conditionId, partition);
+
+    // after redeeming position let's say I have 100 yes tokens so I wshould have 100 USDC back 
+    assertEq(conditionalTokens.balanceOf(address(this), positionIdA), 0, "Should have 0 tokens of position A after redeeming");
+    assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 0, "Should have 0 tokens of position B after redeeming");
+
+    assertEq(usdc.balanceOf(address(this)), 100, "this Contract should be holding 100 USDC after redeeming the tokens");
+    
 }
 
 }
