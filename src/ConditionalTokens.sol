@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol"; 
 import { CTHelpers } from "./CTHelpers.sol";
 import {console} from "forge-std/console.sol";
 
@@ -129,11 +129,11 @@ contract ConditionalTokens is ERC1155 {
             require(indexSet > 0 && indexSet < fullIndexSet, "got invalid index set");
             require((indexSet & freeIndexSet) == indexSet, "partition not disjoint");
             freeIndexSet ^= indexSet;
-            console.log("I think I found you");
+            
             positionIds[i] = CTHelpers.getPositionId(collateralToken, CTHelpers.getCollectionId(parentCollectionId, conditionId, indexSet)); // this line is giving some issues 
-            console.log("is it here?");
+            
             amounts[i] = amount;
-            console.log("loop"); 
+            
         }
 
         if (freeIndexSet == 0) {

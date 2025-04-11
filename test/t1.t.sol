@@ -6,9 +6,11 @@ import {ConditionalTokens} from "src/ConditionalTokens.sol";
 import {DeployConditional} from "script/DeployConditional.s.sol"; 
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol"; 
 import {console} from "forge-std/console.sol";
+// if a contract recieves ERC1155 tokens it must implement ERC11155Receiver
+import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";   
 
 
-contract ConditionalTokensTest is Test {
+contract ConditionalTokensTest is Test, IERC1155Receiver {
 
     address ORACLE = makeAddr("randomOracleAddress");
 
@@ -25,12 +27,37 @@ contract ConditionalTokensTest is Test {
         // questionId = abi.encodePacked("Will bitcoin hit 100K this month?");
     }
 
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) external pure override returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    ) external pure override returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return interfaceId == type(IERC1155Receiver).interfaceId;
+    }
+
     function testprepareCondition() public {
         // setting up a question Id
         questionId = keccak256(abi.encodePacked("Will bitcoin hit 100K this month?")); 
 
         // calculate the expected conditionId
         bytes32 conditionId = conditionalTokens.getConditionId(ORACLE, questionId, 2);
+        
 
         vm.startBroadcast();
         conditionalTokens.prepareCondition(ORACLE, questionId, 2); 

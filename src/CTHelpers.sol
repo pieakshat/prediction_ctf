@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {console} from "forge-std/console.sol";
 
 library CTHelpers {
     function getConditionId(address oracle, bytes32 questionId, uint outcomeSlotCount) internal pure returns (bytes32) {
@@ -130,43 +131,51 @@ library CTHelpers {
         }
     }
 
-    function getCollectionId(bytes32 parentCollectionId, bytes32 conditionId, uint indexSet) internal view returns (bytes32) {
-        uint x1 = uint(keccak256(abi.encodePacked(conditionId, indexSet)));
-        bool odd = (x1 >> 255) != 0;
-        uint y1;
-        uint yy;
-        do {
-            x1 = addmod(x1, 1, P);
-            yy = addmod(mulmod(x1, mulmod(x1, x1, P), P), B, P);
-            y1 = sqrt(yy);
-        } while (mulmod(y1, y1, P) != yy);
+    // this is doing some elliptic curve hashing stuff 
+    // function getCollectionId(bytes32 parentCollectionId, bytes32 conditionId, uint indexSet) internal view returns (bytes32) {
+    //     console.log("Getting the collection id");
+    //     uint x1 = uint(keccak256(abi.encodePacked(conditionId, indexSet)));
+    //     bool odd = (x1 >> 255) != 0;
+    //     uint y1;
+    //     uint yy;
+    //     do {
+    //         x1 = addmod(x1, 1, P);
+    //         yy = addmod(mulmod(x1, mulmod(x1, x1, P), P), B, P);
+    //         y1 = sqrt(yy);
+    //         // console.log("Looping");
+    //     } while (mulmod(y1, y1, P) != yy);
 
-        if ((odd && y1 % 2 == 0) || (!odd && y1 % 2 == 1)) {
-            y1 = P - y1;
-        }
+    //     if ((odd && y1 % 2 == 0) || (!odd && y1 % 2 == 1)) {
+    //         y1 = P - y1;
+    //     }
 
-        uint x2 = uint(parentCollectionId);
-        if (x2 != 0) {
-            odd = (x2 >> 254) != 0;
-            x2 = (x2 << 2) >> 2;
-            yy = addmod(mulmod(x2, mulmod(x2, x2, P), P), B, P);
-            uint y2 = sqrt(yy);
-            if ((odd && y2 % 2 == 0) || (!odd && y2 % 2 == 1)) {
-                y2 = P - y2;
-            }
-            require(mulmod(y2, y2, P) == yy, "invalid parent collection ID");
+    //     uint x2 = uint(parentCollectionId);
+    //     if (x2 != 0) {
+    //         odd = (x2 >> 254) != 0;
+    //         x2 = (x2 << 2) >> 2;
+    //         yy = addmod(mulmod(x2, mulmod(x2, x2, P), P), B, P);
+    //         uint y2 = sqrt(yy);
+    //         if ((odd && y2 % 2 == 0) || (!odd && y2 % 2 == 1)) {
+    //             y2 = P - y2;
+    //         }
+    //         require(mulmod(y2, y2, P) == yy, "invalid parent collection ID");
 
-            (bool success, bytes memory ret) = address(6).staticcall(abi.encode(x1, y1, x2, y2));
-            require(success, "ecadd failed");
-            (x1, y1) = abi.decode(ret, (uint, uint));
-        }
+    //         (bool success, bytes memory ret) = address(6).staticcall(abi.encode(x1, y1, x2, y2));
+    //         require(success, "ecadd failed");
+    //         (x1, y1) = abi.decode(ret, (uint, uint));
+    //     }
 
-        if (y1 % 2 == 1) {
-            x1 ^= 1 << 254;
-        }
+    //     if (y1 % 2 == 1) {
+    //         x1 ^= 1 << 254;
+    //     }
+    //     console.log("Done");
+    //     return bytes32(x1);
+    // }
 
-        return bytes32(x1);
-    }
+    function getCollectionId(bytes32 parentCollectionId, bytes32 conditionId, uint indexSet) internal pure returns (bytes32) {
+    return keccak256(abi.encode(parentCollectionId, conditionId, indexSet));
+}
+
 
     function getPositionId(IERC20 collateralToken, bytes32 collectionId) internal pure returns (uint) {
         return uint(keccak256(abi.encodePacked(collateralToken, collectionId)));
