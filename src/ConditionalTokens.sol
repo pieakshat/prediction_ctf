@@ -63,17 +63,20 @@ contract ConditionalTokens is ERC1155 {
     mapping(bytes32 => uint[]) public payoutNumerators;
      /// Denominator is also used for checking if the condition has been resolved. If the denominator is non-zero, then the condition has been resolved.
     mapping(bytes32 => uint) public payoutDenominator;
+    // mapping that tracks the address of the creator of a condition
+    mapping(bytes32 => address) public creatorOfCondition; 
 
     /// @dev This function prepares a condition by initializing a payout vector associated with the condition.
     /// @param oracle The account assigned to report the result for the prepared condition.
     /// @param questionId An identifier for the question to be answered by the oracle.
     /// @param outcomeSlotCount The number of outcome slots which should be used for this condition. Must not exceed 256.
-    function prepareCondition(address oracle, bytes32 questionId, uint outcomeSlotCount) external {
+    function prepareCondition(address oracle, bytes32 questionId, uint outcomeSlotCount) public {
         require(outcomeSlotCount <= 256, "too many outcome slots");
         require(outcomeSlotCount > 1, "there should be more than one outcome slot");
         bytes32 conditionId = CTHelpers.getConditionId(oracle, questionId, outcomeSlotCount);
         require(payoutNumerators[conditionId].length == 0, "condition already prepared");
         payoutNumerators[conditionId] = new uint[](outcomeSlotCount);
+        creatorOfCondition[conditionId] = msg.sender; // set the creator address 
         emit ConditionPreparation(conditionId, oracle, questionId, outcomeSlotCount);
     }
 
@@ -106,13 +109,15 @@ contract ConditionalTokens is ERC1155 {
     /// @param conditionId The ID of the condition to split on.
     /// @param partition An array of disjoint index sets representing a nontrivial partition of the outcome slots of the given condition. E.g. A|B and C but not A|B and B|C (is not disjoint). Each element's a number which, together with the condition, represents the outcome collection. E.g. 0b110 is A|B, 0b010 is B, etc.
     /// @param amount The amount of collateral or stake to split.
+    /// @param ammAddress address of the AMM where the position tokens will be minted 
     function splitPosition(
         IERC20 collateralToken,
         bytes32 parentCollectionId,
         bytes32 conditionId,
         uint[] calldata partition,
-        uint amount
-    ) external {
+        uint amount, 
+        address ammAddress
+    ) public {
         
         require(partition.length > 1, "got empty or singleton partition");
         uint outcomeSlotCount = payoutNumerators[conditionId].length;
@@ -154,8 +159,8 @@ contract ConditionalTokens is ERC1155 {
             );
         }
 
-        _mintBatch(msg.sender, positionIds, amounts, "");
-        emit PositionSplit(msg.sender, collateralToken, parentCollectionId, conditionId, partition, amount);
+        _mintBatch(ammAddress, positionIds, amounts, "");
+        emit PositionSplit(ammAddress, collateralToken, parentCollectionId, conditionId, partition, amount);
     }
 
     function mergePositions(
@@ -242,6 +247,30 @@ contract ConditionalTokens is ERC1155 {
 
         emit PayoutRedemption(msg.sender, collateralToken, parentCollectionId, conditionId, indexSets, totalPayout);
     }
+
+    // prepares the condition and splits the position 
+    // ideally this function should be in a router contract calling the external functions but writing it here only for now 
+function CreatorCreatingCondition(       
+    IERC20 collateralToken,
+    bytes32 parentCollectionId,
+    address oracle,
+    bytes32 questionId,
+    uint[] calldata partition,
+    uint amount, 
+    address ammAddress
+) external {
+    // Step 1: Prepare the condition
+    prepareCondition(oracle, questionId, partition.length);
+
+    // Step 2: Approve and transfer collateral to the CTF before calling splitPosition
+    require(collateralToken.transferFrom(msg.sender, address(this), amount), "collateral transfer failed");
+
+    // Step 3: Compute conditionId (since splitPosition needs it)
+    bytes32 conditionId = CTHelpers.getConditionId(oracle, questionId, partition.length);
+
+    // Step 4: Split position and mint tokens to the AMM
+    splitPosition(collateralToken, parentCollectionId, conditionId, partition, amount, ammAddress);
+}
 
     /// @dev Gets the outcome slot count of a condition.
     /// @param conditionId ID of the condition.
