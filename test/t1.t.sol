@@ -21,6 +21,7 @@ contract ConditionalTokensTest is Test, IERC1155Receiver {
     uint[] partition = new uint[](2); 
     uint[] payoutVector = new uint[](2); 
     address ammAddress = makeAddr("addressOfTheAMM");
+    address PLATFORM = makeAddr("AddressOfPlatform");
 
     function setUp() public {
         deployConditional = new DeployConditional(); 
@@ -109,8 +110,8 @@ function testSplitPosition() public {
         usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 2)
     );
 
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdA), 100, "Should have 100 tokens of position A");
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 100, "Should have 100 tokens of position B");
+    assertEq(conditionalTokens.balanceOf(address(ammAddress), positionIdA), 100, "Should have 100 tokens of position A");
+    assertEq(conditionalTokens.balanceOf(address(ammAddress), positionIdB), 100, "Should have 100 tokens of position B");
 
     assertEq(usdc.balanceOf(address(conditionalTokens)), 100, "Contract should be holding 100 USDC");
 }
@@ -135,6 +136,7 @@ function testMergePosition() public {
 
     uint amount = 100; 
 
+    // called by this contract 
     conditionalTokens.splitPosition(usdc, parentCollectionId, conditionId, partition, amount, ammAddress);
     
         uint positionIdA = conditionalTokens.getPositionId(
@@ -147,12 +149,15 @@ function testMergePosition() public {
 
     uint newAmount = 40; // try to redeem only 40 usdc
 
+    // called by the amm contract 
+    vm.prank(ammAddress);
     conditionalTokens.mergePositions(usdc, parentCollectionId, conditionId, partition, newAmount);
+    vm.stopPrank();
 
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdA), 60, "Should have 60 tokens of position A");
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 60, "Should have 60 tokens of position B");
+    assertEq(conditionalTokens.balanceOf(address(ammAddress), positionIdA), 60, "Should have 60 tokens of position A");
+    assertEq(conditionalTokens.balanceOf(address(ammAddress), positionIdB), 60, "Should have 60 tokens of position B");
 
-    assertEq(usdc.balanceOf(address(this)), 40, "this Contract should be holding 40 USDC after redeeming the tokens");
+    assertEq(usdc.balanceOf(address(ammAddress)), 40, "this Contract should be holding 40 USDC after redeeming the tokens");
 }
 
 
@@ -175,7 +180,6 @@ function testRedeemPosition() public {  // reportPayoutfunction also working in 
     uint amount = 100; 
 
     conditionalTokens.splitPosition(usdc, parentCollectionId, conditionId, partition, amount, ammAddress);
-    
         uint positionIdA = conditionalTokens.getPositionId(
         usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 1)
     );
@@ -196,68 +200,97 @@ function testRedeemPosition() public {  // reportPayoutfunction also working in 
 
 
     // after setting up the payouts now we call redeemPosition
+    vm.prank(ammAddress); 
     conditionalTokens.redeemPositions(usdc, parentCollectionId, conditionId, partition);
+    vm.stopPrank();
 
     // after redeeming position let's say I have 100 yes tokens so I wshould have 100 USDC back 
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdA), 0, "Should have 0 tokens of position A after redeeming");
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 0, "Should have 0 tokens of position B after redeeming");
+    assertEq(conditionalTokens.balanceOf(address(ammAddress), positionIdA), 0, "Should have 0 tokens of position A after redeeming");
+    assertEq(conditionalTokens.balanceOf(address(ammAddress), positionIdB), 0, "Should have 0 tokens of position B after redeeming");
 
-    assertEq(usdc.balanceOf(address(this)), 100, "this Contract should be holding 100 USDC after redeeming the tokens");
+    assertEq(usdc.balanceOf(address(ammAddress)), 100, "Amm Contract should be holding 100 USDC after redeeming the tokens");
     
 }
 
 
-function testCreatorProfits() public {  // reportPayoutfunction also working in this
+function testCreatorCreatingCondition() public {  // reportPayoutfunction also working in this
 
-    // creator creates a condition
     questionId = keccak256(abi.encodePacked("Will bitcoin hit 100K this month?")); 
     bytes32 conditionId = conditionalTokens.getConditionId(ORACLE, questionId, 2);
     bytes32 parentCollectionId = bytes32(0); 
 
-    conditionalTokens.prepareCondition(ORACLE, questionId, 2);
-
-    usdc.mint(address(this), 100); 
-    emit log_uint(usdc.balanceOf(address(this)));
-    usdc.approve(address(conditionalTokens), 100); 
-    emit log_uint(usdc.allowance(address(this), address(conditionalTokens)));
-
-    
     partition[0] = 1; // outcome 0b01
     partition[1] = 2; // outcome 0b10
 
+    usdc.mint(address(this), 100); 
+    usdc.approve(address(conditionalTokens), 100); 
+
     uint amount = 100; 
 
-    // then creator sends the initial amount to mint the position Tokens to the AMM contract 
-    conditionalTokens.splitPosition(usdc, parentCollectionId, conditionId, partition, amount, ammAddressx);
+    conditionalTokens.creatorCreatingCondition(usdc, parentCollectionId, ORACLE, questionId, partition, amount, ammAddress);
+
+    assertEq(conditionalTokens.creatorOfCondition(conditionId), address(this), "creatorOfCondition should be set to msg.sender");
+
     
-        uint positionIdA = conditionalTokens.getPositionId(
-        usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 1)
+    uint positionIdYes = conditionalTokens.getPositionId(
+        usdc, 
+        conditionalTokens.getCollectionId(parentCollectionId, conditionId, 1)
     );
 
-    uint positionIdB = conditionalTokens.getPositionId(
-        usdc, conditionalTokens.getCollectionId(parentCollectionId, conditionId, 2)
+    uint positionIdNo = conditionalTokens.getPositionId(
+        usdc, 
+        conditionalTokens.getCollectionId(parentCollectionId, conditionId, 2)
     );
 
-    assertEq(usdc.balanceOf(address(this)), 0, "this Contract should be holding 0 USDC after splitting their position and before the reolution");
+    assertEq(conditionalTokens.balanceOf(ammAddress, positionIdYes), amount, "AMM should hold 100 YES tokens");
+    assertEq(conditionalTokens.balanceOf(ammAddress, positionIdNo), amount, "AMM should hold 100 NO tokens");
 
-    // first the oracle calls reportPayouts to call set who won
-    // Bitcoin does hit 100K this month hence the payout vector will be [1, 0]
-    payoutVector[0] = 0; 
-    payoutVector[1] = 1; 
+    // after this is done let's say on the AMM's some trades happen and there are 30 yes left 
+        // Simulate trades: AMM sells 70 YES tokens (users bought them)
+    vm.prank(ammAddress);
+    conditionalTokens.safeTransferFrom(ammAddress, address(0xBEEF), positionIdYes, 70, "0x");
+
+    // yes position wins 
+    payoutVector[0] = 1; 
+    payoutVector[1] = 0; 
+    // first oracle calls reportPayOuts()
+
     vm.prank(ORACLE);
     conditionalTokens.reportPayouts(questionId, payoutVector);
     vm.stopPrank();
 
 
-    // after setting up the payouts now we call redeemPosition
+    partition[0] = 1; // outcome 0b01
+    partition[1] = 2; // outcome 0b10
+    // now the amm will call the redeem position and collect all the usdc
+    vm.prank(ammAddress);
     conditionalTokens.redeemPositions(usdc, parentCollectionId, conditionId, partition);
+    vm.stopPrank();
 
-    // after redeeming position let's say I have 100 yes tokens so I wshould have 100 USDC back 
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdA), 0, "Should have 0 tokens of position A after redeeming");
-    assertEq(conditionalTokens.balanceOf(address(this), positionIdB), 0, "Should have 0 tokens of position B after redeeming");
+    // AMM should receive 30 USDC (for 30 YES tokens)
+    uint finalAmmBalance = usdc.balanceOf(ammAddress);
+    assertEq(finalAmmBalance, 30, "AMM should have 30 USDC after redeeming 30 winning YES tokens");
 
-    assertEq(usdc.balanceOf(address(this)), 100, "this Contract should be holding 100 USDC after redeeming the tokens");
-    
+
+    // AMM sends rewards
+    // 20% to creator, 80% to platform
+    uint creatorReward = (finalAmmBalance * 20) / 100;
+    uint platformShare = finalAmmBalance - creatorReward;
+
+
+    // simulate AMM sending rewards
+    vm.startPrank(ammAddress);
+    usdc.transfer(address(this), creatorReward);    // to creator
+    usdc.transfer(PLATFORM, platformShare);         // to platform
+    vm.stopPrank();
+
+
+    assertEq(usdc.balanceOf(address(this)), creatorReward, "Creator should receive 20% of profit");
+    assertEq(usdc.balanceOf(PLATFORM), platformShare, "Platform should receive 80% of profit");
+
+
 }
+
+
 
 }

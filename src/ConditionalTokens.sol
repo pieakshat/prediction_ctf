@@ -250,7 +250,7 @@ contract ConditionalTokens is ERC1155 {
 
     // prepares the condition and splits the position 
     // ideally this function should be in a router contract calling the external functions but writing it here only for now 
-function CreatorCreatingCondition(       
+function creatorCreatingCondition(       
     IERC20 collateralToken,
     bytes32 parentCollectionId,
     address oracle,
@@ -263,7 +263,7 @@ function CreatorCreatingCondition(
     prepareCondition(oracle, questionId, partition.length);
 
     // Step 2: Approve and transfer collateral to the CTF before calling splitPosition
-    require(collateralToken.transferFrom(msg.sender, address(this), amount), "collateral transfer failed");
+    // require(collateralToken.transferFrom(msg.sender, address(this), amount), "collateral transfer failed");
 
     // Step 3: Compute conditionId (since splitPosition needs it)
     bytes32 conditionId = CTHelpers.getConditionId(oracle, questionId, partition.length);
