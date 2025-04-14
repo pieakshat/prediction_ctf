@@ -245,10 +245,11 @@ function testCreatorCreatingCondition() public {  // reportPayoutfunction also w
     assertEq(conditionalTokens.balanceOf(ammAddress, positionIdYes), amount, "AMM should hold 100 YES tokens");
     assertEq(conditionalTokens.balanceOf(ammAddress, positionIdNo), amount, "AMM should hold 100 NO tokens");
 
-    // after this is done let's say on the AMM's some trades happen and there are 30 yes left 
+    // after this is done let's say on the AMM's some trades happen and there are 30 yes left and let's say it earns 150 dollars in trading fees 
         // Simulate trades: AMM sells 70 YES tokens (users bought them)
+    usdc.mint(address(ammAddress), 150); // $150 earned in trading fees
     vm.prank(ammAddress);
-    conditionalTokens.safeTransferFrom(ammAddress, address(0xBEEF), positionIdYes, 70, "0x");
+    conditionalTokens.safeTransferFrom(ammAddress, address(0xBEEF), positionIdYes, 70, "0x");       // 30 Yes shares still left in the AMM
 
     // yes position wins 
     payoutVector[0] = 1; 
@@ -262,19 +263,19 @@ function testCreatorCreatingCondition() public {  // reportPayoutfunction also w
 
     partition[0] = 1; // outcome 0b01
     partition[1] = 2; // outcome 0b10
-    // now the amm will call the redeem position and collect all the usdc
+    // now the amm will call the redeem position and collect all the usdc(worth 30 USDC)
     vm.prank(ammAddress);
     conditionalTokens.redeemPositions(usdc, parentCollectionId, conditionId, partition);
     vm.stopPrank();
 
     // AMM should receive 30 USDC (for 30 YES tokens)
     uint finalAmmBalance = usdc.balanceOf(ammAddress);
-    assertEq(finalAmmBalance, 30, "AMM should have 30 USDC after redeeming 30 winning YES tokens");
+    assertEq(finalAmmBalance, 180, "AMM should have 180 USDC after redeeming 30 winning YES tokens");   // $150 + $30
 
 
     // AMM sends rewards
     // 20% to creator, 80% to platform
-    uint creatorReward = (finalAmmBalance * 20) / 100;
+    uint creatorReward = (finalAmmBalance * 20) / 100;  // 20% going to the creator 
     uint platformShare = finalAmmBalance - creatorReward;
 
 

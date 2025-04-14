@@ -259,13 +259,11 @@ function creatorCreatingCondition(
     uint amount, 
     address ammAddress
 ) external {
-    // Step 1: Prepare the condition
+    // Prepare the condition
     prepareCondition(oracle, questionId, partition.length);
 
-    // Step 2: Approve and transfer collateral to the CTF before calling splitPosition
-    // require(collateralToken.transferFrom(msg.sender, address(this), amount), "collateral transfer failed");
 
-    // Step 3: Compute conditionId (since splitPosition needs it)
+    // Compute conditionId 
     bytes32 conditionId = CTHelpers.getConditionId(oracle, questionId, partition.length);
 
     // Step 4: Split position and mint tokens to the AMM
