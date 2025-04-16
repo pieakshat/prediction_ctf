@@ -5,6 +5,7 @@ libs = ["lib"]
 solc_version = "0.8.23"
 
 remappings = ["openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/"]
+base_sepolia = "https://sepolia.base.org"
 
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
