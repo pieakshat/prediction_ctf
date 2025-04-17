@@ -16,9 +16,9 @@ contract MockUSDC is ERC20 {
 }
 
 contract Simulate is Script {
-    address constant CONDITIONAL_TOKENS = 0x368E19f65cb5aB2E94538D3068CD4BbC147C2A96;
-    address constant ORACLE = address(0x0A12CE);
-    address constant AMM = address(0xA11CE);
+    address constant CONDITIONAL_TOKENS = 0x82BdAd4324E2E36C351FC9A74791DeD3E0d31F5A; 
+    address constant ORACLE = 0x7144b814a473017612Ac9f6Bbd287147e500953F;
+    address constant AMM = 0x859C43d69021EB1784A1843E1adf8C999cf066A2;
     uint[] partition = new uint[](2); 
 
     function run() external {
@@ -27,6 +27,8 @@ contract Simulate is Script {
         // Deploy mock USDC and approve
         MockUSDC usdc = new MockUSDC();
         usdc.approve(CONDITIONAL_TOKENS, 10 * 1e6);
+
+        
 
         // Create the condition
         ConditionalTokens ct = ConditionalTokens(CONDITIONAL_TOKENS);
