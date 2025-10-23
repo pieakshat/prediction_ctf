@@ -68,9 +68,10 @@ contract ConditionalTokens is ERC1155 {
 
     /// @dev This function prepares a condition by initializing a payout vector associated with the condition.
     /// @param oracle The account assigned to report the result for the prepared condition.
-    /// @param questionId An identifier for the question to be answered by the oracle.
+    /// @param question An identifier for the question to be answered by the oracle.
     /// @param outcomeSlotCount The number of outcome slots which should be used for this condition. Must not exceed 256.
-    function prepareCondition(address oracle, bytes32 questionId, uint outcomeSlotCount) public {
+    function prepareCondition(address oracle, string memory question, uint outcomeSlotCount) public {
+        bytes32 questionId = getQuestionId(question);
         require(outcomeSlotCount <= 256, "too many outcome slots");
         require(outcomeSlotCount > 1, "there should be more than one outcome slot");
         bytes32 conditionId = CTHelpers.getConditionId(oracle, questionId, outcomeSlotCount);
@@ -81,7 +82,7 @@ contract ConditionalTokens is ERC1155 {
     }
 
     /// @dev Called by the oracle for reporting results of conditions. Will set the payout vector for the condition with the ID ``keccak256(abi.encodePacked(oracle, questionId, outcomeSlotCount))``, where oracle is the message sender, questionId is one of the parameters of this function, and outcomeSlotCount is the length of the payouts parameter, which contains the payoutNumerators for each outcome slot of the condition.
-    /// @param questionId The question ID the oracle is answering for
+    /// @param questionId The question ID the oracle is answering for assuming the oracle will already have the questionId
     /// @param payouts The oracle's answer
     function reportPayouts(bytes32 questionId, uint[] calldata payouts) external {
         uint outcomeSlotCount = payouts.length;
@@ -109,14 +110,15 @@ contract ConditionalTokens is ERC1155 {
     /// @param conditionId The ID of the condition to split on.
     /// @param partition An array of disjoint index sets representing a nontrivial partition of the outcome slots of the given condition. E.g. A|B and C but not A|B and B|C (is not disjoint). Each element's a number which, together with the condition, represents the outcome collection. E.g. 0b110 is A|B, 0b010 is B, etc.
     /// @param amount The amount of collateral or stake to split.
-    /// @param ammAddress address of the AMM where the position tokens will be minted 
+    // / @param ammAddress address of the AMM where the position tokens will be minted 
+    // position tokens will be minted to the msg.sender 
     function splitPosition(
         IERC20 collateralToken,
         bytes32 parentCollectionId,
         bytes32 conditionId,
         uint[] calldata partition,
-        uint amount, 
-        address ammAddress
+        uint amount 
+        // address ammAddress
     ) public {
         
         require(partition.length > 1, "got empty or singleton partition");
@@ -138,7 +140,6 @@ contract ConditionalTokens is ERC1155 {
             positionIds[i] = CTHelpers.getPositionId(collateralToken, CTHelpers.getCollectionId(parentCollectionId, conditionId, indexSet)); // this line is giving some issues 
             
             amounts[i] = amount;
-            
         }
 
         if (freeIndexSet == 0) {
@@ -159,8 +160,8 @@ contract ConditionalTokens is ERC1155 {
             );
         }
 
-        _mintBatch(ammAddress, positionIds, amounts, "");
-        emit PositionSplit(ammAddress, collateralToken, parentCollectionId, conditionId, partition, amount);
+        _mintBatch(msg.sender, positionIds, amounts, "");
+        emit PositionSplit(msg.sender, collateralToken, parentCollectionId, conditionId, partition, amount);
     }
 
     function mergePositions(
@@ -250,25 +251,37 @@ contract ConditionalTokens is ERC1155 {
 
     // prepares the condition and splits the position 
     // ideally this function should be in a router contract calling the external functions but writing it here only for now 
+    // writing this function to directly supply liquidity to the amm from here it will call initialisePool on the amm 
 function creatorCreatingCondition(       
     IERC20 collateralToken,
     bytes32 parentCollectionId,
     address oracle,
-    bytes32 questionId,
+    string memory question,
     uint[] calldata partition,
-    uint amount, 
-    address ammAddress
+    uint amount 
+    // address ammAddress
 ) external {
+
+    bytes32 questionId = getQuestionId(question); 
+
     // Prepare the condition
-    prepareCondition(oracle, questionId, partition.length);
+    prepareCondition(oracle, question, partition.length);
 
 
     // Compute conditionId 
     bytes32 conditionId = CTHelpers.getConditionId(oracle, questionId, partition.length);
 
-    // Step 4: Split position and mint tokens to the AMM
-    splitPosition(collateralToken, parentCollectionId, conditionId, partition, amount, ammAddress);
+    // Split position and mint tokens to msg.sender currently but it wu
+    // instead of this we need to initializePool on the amm and supply liquidity to the pool 
+    splitPosition(collateralToken, parentCollectionId, conditionId, partition, amount);
 }
+
+    /// @dev Gets the question ID from a question.
+    /// @param question The question to get the ID for.
+    /// @return The question ID.
+    function getQuestionId(string memory question) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(question));
+    }
 
     /// @dev Gets the outcome slot count of a condition.
     /// @param conditionId ID of the condition.
